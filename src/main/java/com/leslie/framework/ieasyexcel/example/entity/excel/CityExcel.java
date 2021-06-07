@@ -2,7 +2,7 @@ package com.leslie.framework.ieasyexcel.example.entity.excel;
 
 import com.alibaba.excel.annotation.ExcelIgnoreUnannotated;
 import com.alibaba.excel.annotation.ExcelProperty;
-import com.leslie.framework.ieasyexcel.read.ExcelReadValidation;
+import com.leslie.framework.ieasyexcel.read.BasedReadBean;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.Setter;
@@ -19,7 +19,7 @@ import javax.validation.constraints.NotBlank;
 @ToString(callSuper = true)
 @EqualsAndHashCode(callSuper = false)
 @ExcelIgnoreUnannotated
-public class CityExcel extends ExcelReadValidation {
+public class CityExcel extends BasedReadBean {
 
     @NotBlank(message = "城市编码不能为空")
     @ExcelProperty("城市编码")

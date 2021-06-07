@@ -3,7 +3,7 @@ package com.leslie.framework.ieasyexcel.example;
 import com.alibaba.excel.EasyExcel;
 import com.alibaba.excel.read.metadata.holder.ReadRowHolder;
 import com.alibaba.excel.read.metadata.holder.ReadSheetHolder;
-import com.leslie.framework.ieasyexcel.apply.ApplyExecutor;
+import com.leslie.framework.ieasyexcel.apply.ExcelApplyExecutor;
 import com.leslie.framework.ieasyexcel.apply.ExcelApplyParam;
 import com.leslie.framework.ieasyexcel.apply.loader.ApplyContextPageLoaderAdapter;
 import com.leslie.framework.ieasyexcel.context.ApplyContext;
@@ -16,8 +16,8 @@ import com.leslie.framework.ieasyexcel.example.entity.constant.EXCEL_BIZ_TYPE;
 import com.leslie.framework.ieasyexcel.example.entity.constant.EXCEL_ROW_STATUS;
 import com.leslie.framework.ieasyexcel.example.repository.ExcelRecordRepository;
 import com.leslie.framework.ieasyexcel.example.repository.ExcelRowRepository;
+import com.leslie.framework.ieasyexcel.read.BasedReadBean;
 import com.leslie.framework.ieasyexcel.read.ExcelReadParam;
-import com.leslie.framework.ieasyexcel.read.ExcelReadValidation;
 import com.leslie.framework.ieasyexcel.read.listener.ExcelReadListener;
 import com.leslie.framework.ieasyexcel.util.JsonUtils;
 import org.junit.jupiter.api.MethodOrderer;
@@ -38,7 +38,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 @SpringBootTest
-class CityExcelService {
+class ExcelServiceTests {
 
     @Autowired
     private ExcelRecordRepository excelRecordRepository;
@@ -66,7 +66,7 @@ class CityExcelService {
 
                     excelDataList.forEach(data -> {
 
-                        ExcelReadValidation readData = (ExcelReadValidation) data;
+                        BasedReadBean readData = (BasedReadBean) data;
 
                         ExcelRow excelRow = new ExcelRow();
                         excelRow.setExcelRecordId(excelRecordId);
@@ -80,7 +80,7 @@ class CityExcelService {
                     });
                 }).build();
 
-        ExcelReadListener<? extends ExcelReadValidation> readListener = new ExcelReadListener<>(readParam);
+        ExcelReadListener<? extends BasedReadBean> readListener = new ExcelReadListener<>(readParam);
         read(readListener, EXCEL_BIZ_TYPE.CITY.excelClazz, inputStream);
 
         List<ExcelRow> rows = excelRowRepository.findByExcelRecordIdAndStatus(excelRecord.getId(), EXCEL_ROW_STATUS.FAILURE_PRECHECK);
@@ -107,7 +107,7 @@ class CityExcelService {
                 .excelReader((excelDataList, context) -> {
 
                     for (int i = 0; i < excelDataList.size(); i++) {
-                        ExcelReadValidation readData = (ExcelReadValidation) excelDataList.get(i);
+                        BasedReadBean readData = (BasedReadBean) excelDataList.get(i);
                         ExcelRow excelRow = new ExcelRow();
                         excelRow.setExcelRecordId(excelRecordId);
                         excelRow.setRowData(JsonUtils.toJsonString(readData));
@@ -132,7 +132,7 @@ class CityExcelService {
                     }
                 }).build();
 
-        ExcelReadListener<? extends ExcelReadValidation> readListener = new CustomExcelReadListener<>(readParam);
+        ExcelReadListener<? extends BasedReadBean> readListener = new CustomExcelReadListener<>(readParam);
         read(readListener, EXCEL_BIZ_TYPE.CITY.excelClazz, inputStream);
 
         List<ExcelRow> rows = excelRowRepository.findByExcelRecordIdAndStatus(excelRecord.getId(), EXCEL_ROW_STATUS.FAILURE_PRECHECK);
@@ -162,7 +162,7 @@ class CityExcelService {
 
                 }).build();
 
-        ApplyExecutor<ExcelRow> applyExecutor = new ApplyExecutor<>(applyParam);
+        ExcelApplyExecutor<ExcelRow> applyExecutor = new ExcelApplyExecutor<>(applyParam);
         applyExecutor.execute();
     }
 
@@ -188,7 +188,7 @@ class CityExcelService {
 
                     excelDataList.forEach(data -> {
 
-                        ExcelReadValidation readData = (ExcelReadValidation) data;
+                        BasedReadBean readData = (BasedReadBean) data;
 
                         ExcelRow excelRow = new ExcelRow();
                         excelRow.setExcelRecordId(excelRecordId);
@@ -203,7 +203,7 @@ class CityExcelService {
                 }).build();
     }
 
-    public <T extends ExcelReadValidation> void read(ExcelReadListener<? extends ExcelReadValidation> excelReadListener, Class<T> excelClass, InputStream inputStream) {
+    public <T extends BasedReadBean> void read(ExcelReadListener<? extends BasedReadBean> excelReadListener, Class<T> excelClass, InputStream inputStream) {
         EasyExcel.read(inputStream, excelClass, excelReadListener).sheet().doRead();
     }
 }
