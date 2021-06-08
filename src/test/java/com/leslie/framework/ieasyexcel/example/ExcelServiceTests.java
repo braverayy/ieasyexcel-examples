@@ -158,20 +158,17 @@ class ExcelServiceTests {
                 .key(key)
                 .batchCount(50)
                 .contextHolder(contextHolder)
-                .excelReader((excelDataList, context) -> {
+                .excelReader((excelDataList, context) -> excelDataList.forEach(data -> {
 
-                    excelDataList.forEach(data -> {
+                    BasedExcelReadModel readData = (BasedExcelReadModel) data;
 
-                        BasedExcelReadModel readData = (BasedExcelReadModel) data;
+                    ExcelRow excelRow = new ExcelRow();
+                    excelRow.setExcelRecordId(excelRecordId);
+                    excelRow.setRowData(JsonUtils.toJsonString(readData));
+                    excelRow.setStatus(readData.getAvailable() ? EXCEL_ROW_STATUS.UNAPPLY : EXCEL_ROW_STATUS.FAILURE_PRECHECK);
+                    excelRow.setMsg(readData.getMsg());
 
-                        ExcelRow excelRow = new ExcelRow();
-                        excelRow.setExcelRecordId(excelRecordId);
-                        excelRow.setRowData(JsonUtils.toJsonString(readData));
-                        excelRow.setStatus(readData.getAvailable() ? EXCEL_ROW_STATUS.UNAPPLY : EXCEL_ROW_STATUS.FAILURE_PRECHECK);
-                        excelRow.setMsg(readData.getMsg());
-
-                        excelRowRepository.save(excelRow);
-                    });
-                }).build();
+                    excelRowRepository.save(excelRow);
+                })).build();
     }
 }
