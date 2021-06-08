@@ -9,5 +9,5 @@ import org.springframework.stereotype.Repository;
  * @date 2021/6/07
  */
 @Repository
-public interface CityRepository extends JpaRepository<City,String> {
+public interface CityRepository extends JpaRepository<City, String> {
 }

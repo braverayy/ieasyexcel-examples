@@ -1,8 +1,6 @@
 package com.leslie.framework.ieasyexcel.example;
 
 import com.alibaba.excel.EasyExcel;
-import com.alibaba.excel.read.metadata.holder.ReadRowHolder;
-import com.alibaba.excel.read.metadata.holder.ReadSheetHolder;
 import com.leslie.framework.ieasyexcel.apply.ExcelApplyExecutor;
 import com.leslie.framework.ieasyexcel.apply.ExcelApplyParam;
 import com.leslie.framework.ieasyexcel.apply.loader.ApplyContextPageLoaderAdapter;
@@ -16,10 +14,11 @@ import com.leslie.framework.ieasyexcel.example.entity.constant.EXCEL_BIZ_TYPE;
 import com.leslie.framework.ieasyexcel.example.entity.constant.EXCEL_ROW_STATUS;
 import com.leslie.framework.ieasyexcel.example.repository.ExcelRecordRepository;
 import com.leslie.framework.ieasyexcel.example.repository.ExcelRowRepository;
-import com.leslie.framework.ieasyexcel.read.BasedReadBean;
+import com.leslie.framework.ieasyexcel.read.BasedExcelReadModel;
 import com.leslie.framework.ieasyexcel.read.ExcelReadParam;
 import com.leslie.framework.ieasyexcel.read.listener.ExcelReadListener;
 import com.leslie.framework.ieasyexcel.util.JsonUtils;
+import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -36,6 +35,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * @author leslie
  * @date 2021/6/7
  */
+@Slf4j
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 @SpringBootTest
 class ExcelServiceTests {
@@ -58,31 +58,15 @@ class ExcelServiceTests {
 
         ContextHolder<String, ReadContext> contextHolder = ContextHolderBuilder.<ReadContext>create().build();
 
-        ExcelReadParam readParam = ExcelReadParam.builder()
-                .key(key)
-                .batchCount(50)
-                .contextHolder(contextHolder)
-                .excelReader((excelDataList, context) -> {
+        // 构建 Excel 读参数
+        ExcelReadParam readParam = buildReadParam(excelRecordId, key, contextHolder);
 
-                    excelDataList.forEach(data -> {
+        // 创建监听器
+        ExcelReadListener<? extends BasedExcelReadModel> readListener = new ExcelReadListener<>(readParam);
+        // 读取 Excel
+        EasyExcel.read(inputStream, EXCEL_BIZ_TYPE.CITY.excelClazz, readListener).sheet().doRead();
 
-                        BasedReadBean readData = (BasedReadBean) data;
-
-                        ExcelRow excelRow = new ExcelRow();
-                        excelRow.setExcelRecordId(excelRecordId);
-                        excelRow.setRowData(JsonUtils.toJsonString(readData));
-                        excelRow.setStatus(readData.getAvailable() ? EXCEL_ROW_STATUS.UNAPPLY : EXCEL_ROW_STATUS.FAILURE_PRECHECK);
-                        excelRow.setMsg(readData.getMsg());
-
-                        excelRowRepository.save(excelRow);
-
-                        contextHolder.getContext(key).ifPresent(System.out::println);
-                    });
-                }).build();
-
-        ExcelReadListener<? extends BasedReadBean> readListener = new ExcelReadListener<>(readParam);
-        read(readListener, EXCEL_BIZ_TYPE.CITY.excelClazz, inputStream);
-
+        // 验证
         List<ExcelRow> rows = excelRowRepository.findByExcelRecordIdAndStatus(excelRecord.getId(), EXCEL_ROW_STATUS.FAILURE_PRECHECK);
         assertThat(rows).isNotEmpty();
         assertThat(rows).hasSize(2);
@@ -92,7 +76,7 @@ class ExcelServiceTests {
 
     @Test
     @Order(2)
-    void readTestByCustom() {
+    void readTestWithMonitor() {
         ExcelRecord excelRecord = save(EXCEL_BIZ_TYPE.CITY, "leslie");
 
         Long excelRecordId = excelRecord.getId();
@@ -100,41 +84,15 @@ class ExcelServiceTests {
 
         ContextHolder<String, ReadContext> contextHolder = ContextHolderBuilder.<ReadContext>create().build();
 
-        ExcelReadParam readParam = ExcelReadParam.builder()
-                .key(key)
-                .batchCount(50)
-                .contextHolder(contextHolder)
-                .excelReader((excelDataList, context) -> {
+        // 构建 Excel 读参数
+        ExcelReadParam readParam = buildReadParam(excelRecordId, key, contextHolder);
 
-                    for (int i = 0; i < excelDataList.size(); i++) {
-                        BasedReadBean readData = (BasedReadBean) excelDataList.get(i);
-                        ExcelRow excelRow = new ExcelRow();
-                        excelRow.setExcelRecordId(excelRecordId);
-                        excelRow.setRowData(JsonUtils.toJsonString(readData));
-                        excelRow.setStatus(readData.getAvailable() ? EXCEL_ROW_STATUS.UNAPPLY : EXCEL_ROW_STATUS.FAILURE_PRECHECK);
-                        excelRow.setMsg(readData.getMsg());
+        // 创建监听器
+        ExcelReadListener<? extends BasedExcelReadModel> readListener = new CustomExcelReadListener<>(readParam);
+        // 读取 Excel
+        EasyExcel.read(inputStream, EXCEL_BIZ_TYPE.CITY.excelClazz, readListener).sheet().doRead();
 
-                        excelRowRepository.save(excelRow);
-
-                        ReadRowHolder readRowHolder = context.readRowHolder();
-                        ReadSheetHolder readSheetHolder = context.readSheetHolder();
-
-                        ReadContext readContext = ReadContext.builder()
-                                .sheetName(readSheetHolder.getSheetName())
-                                .sheetNo(readSheetHolder.getSheetNo())
-                                .rowTotal(readSheetHolder.getApproximateTotalRowNumber())
-                                .rowIndex(readRowHolder.getRowIndex() - 50 + i)
-                                .build();
-
-                        contextHolder.setContext(key, readContext);
-                        contextHolder.getContext(key).ifPresent(System.out::println);
-
-                    }
-                }).build();
-
-        ExcelReadListener<? extends BasedReadBean> readListener = new CustomExcelReadListener<>(readParam);
-        read(readListener, EXCEL_BIZ_TYPE.CITY.excelClazz, inputStream);
-
+        // 验证
         List<ExcelRow> rows = excelRowRepository.findByExcelRecordIdAndStatus(excelRecord.getId(), EXCEL_ROW_STATUS.FAILURE_PRECHECK);
         assertThat(rows).isNotEmpty();
         assertThat(rows).hasSize(2);
@@ -143,26 +101,46 @@ class ExcelServiceTests {
     }
 
     @Test
-    @Order(2)
+    @Order(3)
     void applyTest() {
-//        ExcelRecord excelRecord = read(EXCEL_BIZ_TYPE.CITY, "leslie");
+        // read excel
+        ExcelRecord excelRecord = save(EXCEL_BIZ_TYPE.CITY, "leslie");
 
-        String key = String.format("excel:apply:%s", 1);
+        Long excelRecordId = excelRecord.getId();
+        String readKey = String.format("excel:read:%s", excelRecordId);
 
-        ContextHolder<String, ApplyContext> contextHolder = ContextHolderBuilder.<ApplyContext>create().build();
+        ContextHolder<String, ReadContext> readContextHolder = ContextHolderBuilder.<ReadContext>create().build();
 
+        // 构建 Excel 读参数
+        ExcelReadParam readParam = buildReadParam(excelRecordId, readKey, readContextHolder);
+
+        // 创建监听器
+        ExcelReadListener<? extends BasedExcelReadModel> readListener = new ExcelReadListener<>(readParam);
+        // 读取 Excel
+        EasyExcel.read(inputStream, EXCEL_BIZ_TYPE.CITY.excelClazz, readListener).sheet().doRead();
+
+
+        // apply excel
+        String applyKey = String.format("excel:apply:%s", excelRecordId);
+
+        ContextHolder<String, ApplyContext> applyContextHolder = ContextHolderBuilder.<ApplyContext>create().build();
+
+        // 构建 Excel 入库参数
         ExcelApplyParam applyParam = ExcelApplyParam.builder()
-                .key(key)
-                .contextHolder(contextHolder)
-                .contextLoader(new ApplyContextPageLoaderAdapter<>(3, pageable -> excelRowRepository.findByExcelRecordIdAndStatus(1L, EXCEL_ROW_STATUS.UNAPPLY, pageable)))
+                .key(applyKey)
+                .contextHolder(applyContextHolder)
+                .contextLoader(new ApplyContextPageLoaderAdapter<>(pageable -> excelRowRepository.findByExcelRecordIdAndStatus(excelRecordId, EXCEL_ROW_STATUS.UNAPPLY, pageable)))
                 .excelApplier((data, context) -> {
 
-                    System.out.println(JsonUtils.toJsonString(data));
-                    contextHolder.getContext(key).ifPresent(System.out::println);
+                    // 验证数据合法性并保存到业务表
+                    log.info("Apply data: {}", data);
+                    log.warn("ApplyContext: {}", applyContextHolder.getContext(applyKey).orElse(ApplyContext.builder().build()));
 
                 }).build();
 
+        // 入库执行器
         ExcelApplyExecutor<ExcelRow> applyExecutor = new ExcelApplyExecutor<>(applyParam);
+        // 入库
         applyExecutor.execute();
     }
 
@@ -175,11 +153,7 @@ class ExcelServiceTests {
         return excelRecord;
     }
 
-    public ExcelReadParam buildReadParam(Long excelRecordId) {
-        String key = String.format("excel:read:%s", excelRecordId);
-
-        ContextHolder<String, ReadContext> contextHolder = ContextHolderBuilder.<ReadContext>create().build();
-
+    public ExcelReadParam buildReadParam(Long excelRecordId, String key, ContextHolder<String, ReadContext> contextHolder) {
         return ExcelReadParam.builder()
                 .key(key)
                 .batchCount(50)
@@ -188,7 +162,7 @@ class ExcelServiceTests {
 
                     excelDataList.forEach(data -> {
 
-                        BasedReadBean readData = (BasedReadBean) data;
+                        BasedExcelReadModel readData = (BasedExcelReadModel) data;
 
                         ExcelRow excelRow = new ExcelRow();
                         excelRow.setExcelRecordId(excelRecordId);
@@ -197,13 +171,7 @@ class ExcelServiceTests {
                         excelRow.setMsg(readData.getMsg());
 
                         excelRowRepository.save(excelRow);
-
-                        contextHolder.getContext(key).ifPresent(System.out::println);
                     });
                 }).build();
-    }
-
-    public <T extends BasedReadBean> void read(ExcelReadListener<? extends BasedReadBean> excelReadListener, Class<T> excelClass, InputStream inputStream) {
-        EasyExcel.read(inputStream, excelClass, excelReadListener).sheet().doRead();
     }
 }

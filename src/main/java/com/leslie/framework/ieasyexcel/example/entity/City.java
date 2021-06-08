@@ -4,7 +4,10 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
 
-import javax.persistence.*;
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.Id;
+import javax.persistence.Table;
 
 /**
  * @author leslie
@@ -18,12 +21,12 @@ import javax.persistence.*;
 public class City {
 
     @Id
-    @Column(name = "code",length = 45)
+    @Column(name = "code", length = 45)
     private Long code;
 
-    @Column(name = "name",nullable = false,length = 45)
+    @Column(name = "name", nullable = false, length = 45)
     private String name;
 
-    @Column(name = "province_code",nullable = false,length = 45)
+    @Column(name = "province_code", nullable = false, length = 45)
     private Long provinceCode;
 }
